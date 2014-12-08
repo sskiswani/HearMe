@@ -13,11 +13,11 @@ MASKS = {
 def histogram(img, thresh=0.9):
     hist = np.zeros((img.shape[0],))
 
-    for y in xrange(1, img.shape[0]-1):
-        for x in xrange(1, img.shape[1]-1):
-            if img[y, x] < thresh and img[y, x-1] < thresh and img[y, x+1] < thresh:
-                hist[y] += 1
-
+    for y in xrange(0, img.shape[0]):
+        chain = 0
+        for x in xrange(1, img.shape[1]):
+            chain = 0 if img[y, x] != img[y, x-1] or img[y, x] < 0.5 else chain + 1
+            hist[y] += chain
     return hist
 
 def normalize(img):
@@ -29,8 +29,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='HearMe: Sheet Music to MIDI converter.')
     parser.add_argument('src', type=str, nargs='?', help='Path to source image (sheet music) to be parsed.')
     parser.add_argument('dest', type=str, nargs='?', help='Name to save midi as, if not supplied will save output in same directory as source.')
-    parser.set_defaults(dest=None, src='../BoleroofFire.jpg')
-    # parser.set_defaults(dest=None, src='../Frere_Jacques.png')
+    # parser.set_defaults(dest=None, src='../BoleroofFire.jpg')
+    parser.set_defaults(dest=None, src='../Frere_Jacques.png')
     args = parser.parse_args()
 
     # Initialize
@@ -43,15 +43,17 @@ if __name__ == '__main__':
 
     img = original = img_as_float(io.imread(src, True))
     img = normalize(filter.canny(img))
-    img = convolve1d(img, MASKS['gauss']*16., 1, mode='nearest')
+    img = convolve1d(img, MASKS['gauss'], 1, mode='nearest')
+    img = normalize(img)
     io.imshow(img)
 
-    img = normalize(img)
-    hist = np.array([np.sum(img[y, :] > 0.7) for y in xrange(img.shape[0])])
+    # hist = np.array([np.sum(img[y, :] > 0.8) for y in xrange(img.shape[0])])
+    hist = histogram(img)
+    hist = normalize(hist) * img.shape[1]
     plt.scatter(hist, range(img.shape[0]), c='r')
 
     # get histogram without values below threshold messing it up
-    avg = np.average([y for y in hist if y > 0])
+    avg = (np.average([y for y in hist]))
 
     plt.plot([avg, avg], [0, img.shape[0]], c='g')
 
