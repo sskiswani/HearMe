@@ -30,6 +30,7 @@ if __name__ == '__main__':
     parser.add_argument('src', type=str, nargs='?', help='Path to source image (sheet music) to be parsed.')
     parser.add_argument('dest', type=str, nargs='?', help='Name to save midi as, if not supplied will save output in same directory as source.')
     parser.set_defaults(dest=None, src='../BoleroofFire.jpg')
+    # parser.set_defaults(dest=None, src='../Frere_Jacques.png')
     args = parser.parse_args()
 
     # Initialize
@@ -40,17 +41,20 @@ if __name__ == '__main__':
     else:
         dest = path.abspath(args.dest)
 
-    img = img_as_float(io.imread(src, True))
-    img = convolve1d(filter.vsobel(img), np.array([1., 2., 2., 6., 2., 2., 1.]) / 16., 1, mode='nearest')
-    img = 1 - img_as_float(io.imread(src, True)) - normalize(img)
-    print 'min: %.3f max: %.3f' % (np.min(img), np.max(img))
+    img = original = img_as_float(io.imread(src, True))
+    img = normalize(filter.canny(img))
+    img = convolve1d(img, MASKS['gauss']*16., 1, mode='nearest')
     io.imshow(img)
-    hist = np.array([np.sum(img[y, :] > 0.4) for y in xrange(img.shape[0])])
-    plt.scatter(hist, range(img.shape[0]), c='r')
-    avg = 2*np.average(hist)
-    lines = np.array([hist[y] - hist[y-1] > avg for y in xrange(len(hist))]) * img.shape[0] * 0.75
 
-    plt.scatter(lines, range(img.shape[0]), c='b')
+    img = normalize(img)
+    hist = np.array([np.sum(img[y, :] > 0.7) for y in xrange(img.shape[0])])
+    plt.scatter(hist, range(img.shape[0]), c='r')
+
+    # get histogram without values below threshold messing it up
+    avg = np.average([y for y in hist if y > 0])
+
+    plt.plot([avg, avg], [0, img.shape[0]], c='g')
+
     plt.show()
 
     exit(0)
