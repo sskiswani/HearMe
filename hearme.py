@@ -25,12 +25,27 @@ def normalize(img):
     if imin == imax: imax = imin + 1E-3
     return (img - imin) / (imax - imin)
 
+def generate_midi(src_path):
+    img = img_as_float(io.imread(src_path, True))
+    img = normalize(filter.canny(img))
+    img = convolve1d(img, MASKS['gauss'], 1, mode='nearest')
+    img = normalize(img)
+
+    hist = histogram(img)
+    hist = normalize(hist) * img.shape[1]
+    avg = (np.average([y for y in hist]))
+
+    # pluck out staff lines
+    lines = [i for i in xrange(len(hist)) if hist[i] > avg]
+    lines = [(lines[i], lines[i+1]) for i in xrange(len(lines)-1)]
+    if not len(lines) % 5: print 'ERROR: Have %i staff lines. (should be a multiple of 5)' % len(lines)
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='HearMe: Sheet Music to MIDI converter.')
     parser.add_argument('src', type=str, nargs='?', help='Path to source image (sheet music) to be parsed.')
     parser.add_argument('dest', type=str, nargs='?', help='Name to save midi as, if not supplied will save output in same directory as source.')
-    # parser.set_defaults(dest=None, src='../BoleroofFire.jpg')
-    parser.set_defaults(dest=None, src='../Frere_Jacques.png')
+    parser.set_defaults(dest=None, src='../BoleroofFire.jpg')
+    # parser.set_defaults(dest=None, src='../Frere_Jacques.png')
     args = parser.parse_args()
 
     # Initialize
@@ -41,22 +56,13 @@ if __name__ == '__main__':
     else:
         dest = path.abspath(args.dest)
 
-    img = original = img_as_float(io.imread(src, True))
-    img = normalize(filter.canny(img))
-    img = convolve1d(img, MASKS['gauss'], 1, mode='nearest')
-    img = normalize(img)
-    io.imshow(img)
+    generate_midi(src)
 
-    # hist = np.array([np.sum(img[y, :] > 0.8) for y in xrange(img.shape[0])])
-    hist = histogram(img)
-    hist = normalize(hist) * img.shape[1]
-    plt.scatter(hist, range(img.shape[0]), c='r')
+    # io.imshow(img)
+    # plt.scatter(hist, range(img.shape[0]), c='r')
+    # plt.plot([avg, avg], [0, img.shape[0]], c='g')
+    # plt.show()
 
-    # get histogram without values below threshold messing it up
-    avg = (np.average([y for y in hist]))
 
-    plt.plot([avg, avg], [0, img.shape[0]], c='g')
-
-    plt.show()
 
     exit(0)
