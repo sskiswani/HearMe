@@ -89,25 +89,34 @@ def generate_midi(src):
 
     # now extract notes
     staff = 1-img
-    img = original.copy()
-    img = grey_dilation(img, structure=np.ones((3, 1)), mode='nearest')
-    img = 1-normalize(img)
-    # img = filter.vsobel(img)
-    # img = exposure.equalize_hist(img)
-    img = (img > filter.threshold_otsu(img))
+    img = 1 - original.copy()
+    img = img > filter.threshold_otsu(img)
+
+    for y in lines:
+        for x in xrange(img.shape[1]):
+            img[y, x] = img[y, x] & img[y+1, x] & img[y-1, x]
+    nostaff = 1 - normalize(img)
+
+    img = grey_dilation(1 - nostaff, structure=np.ones((2, 3)), mode='nearest')
+    img = normalize(img)
+    io.imsave(path.abspath('./training/processed_notes.png'), img * 255)
+
+
+
+
 
     # blobs = feature.blob_log(img, 3)
     # blobs[:, 2] = blobs[:, 2] * np.sqrt(2)
 
     # # img = binary_closing(img, structure=np.ones((3, 3)))
-    fig, ax = plt.subplots(figsize=((8,8)))
-    ax.imshow(img, cmap=plt.cm.gray)
+    # fig, ax = plt.subplots(figsize=((8,8)))
+    # ax.imshow(img, cmap=plt.cm.gray)
     # for blob in blobs:
     #     y, x, r = blob
     #     c = plt.Circle((x, y), r, color='yellow', linewidth=2, fill=False)
     #     ax.add_patch(c)
-    fig.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
-    plt.show()
+    # fig.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
+    # plt.show()
 
     exit()
 
