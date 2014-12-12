@@ -4,10 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage import (filter, io, img_as_float, restoration, transform)
 from scipy import ndimage
-from scipy.ndimage.morphology import grey_dilation
+from scipy.ndimage import convolve1d
+from scipy.ndimage.morphology import (grey_dilation, binary_erosion, binary_dilation)
 from sklearn import svm, feature_selection
 from sklearn.externals import joblib
-
+import music21 as m21
 
 MATCHING_SIZE = np.array([62, 29])
 
@@ -140,13 +141,14 @@ def generate_midi(src):
 
     img = img > filter.threshold_otsu(img)
 
-    lines = [y for y in xrange(1, img.shape[0]) if not img[y - 1, 0] and img[y, 0]]
+    lines = [y for y in xrange(1, img.shape[0]-1) if not img[y-1, 0] and img[y, 0]]
     staff = Staff(lines)
     staff_img = 1 - img
+    print len(lines)
 
 
     # fig, ax = plt.subplots(figsize=(8, 8))
-    # plt.imshow(img, cmap=plt.cm.gray)
+    # plt.imshow(original, cmap=plt.cm.gray)
     # for l in lines: plt.plot([0, img.shape[1]], [l, l])
     # fig.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
     # plt.show()
@@ -155,50 +157,46 @@ def generate_midi(src):
     # now separate notes from staff
     img = 1 - original.copy()
     img = img > filter.threshold_otsu(img)
-
+    img = binary_erosion(img, np.ones((2, 1)))
+    img = binary_dilation(img, np.ones((2, 1)))
     for y in lines:
         for x in xrange(img.shape[1]):
-            img[y, x] = img[y, x] & img[y + 1, x] & img[y - 1, x]
+            img[y, x] = (img[y, x] & img[y+1, x] & img[y-1, x])
     nostaff = 1 - normalize(img)
     img = grey_dilation(1 - nostaff, structure=np.ones((2, 3)), mode='nearest')
     img = normalize(img)
 
+    # fig, ax = plt.subplots(figsize=(8, 8))
+    # plt.imshow(img, cmap=plt.cm.gray)
+    # fig.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
+    # plt.show()
 
     # now find the notes in the staff
     labels, num_labels = ndimage.label(img, np.ones((3, 3)))
     slices = ndimage.find_objects(labels)
-    clf, sel = load_classifier()
-
-
-    # test classifier on first result
-    matcher = original
-    matches = []
-    for i, loc in enumerate(slices):
-        patch = transform.resize(matcher[loc], MATCHING_SIZE, mode='nearest')
-        hog = feature_extractor(patch, sel, True)
-        print "patch[%i] is %s " % (i, clf.predict([hog]))
-        matches.append((clf.predict([hog]), loc))
-
-
-    # imgs_to_use = [img, original, nostaff, normalize((1-original)*labels)]
-    # names = ['img', 'original', 'nostaff', 'multiply']
+    # clf, sel = load_classifier()
+    #
+    # matcher = original
+    # matches = []
     # for i, loc in enumerate(slices):
-    # for (name, img) in zip(names, imgs_to_use):
-    #         patch = transform.resize(img[loc], MATCHING_SIZE, mode='nearest')
-    #         hog = feature_extractor(patch, True)
-    #         print "img[%s][%i] is %s" % (name, i, clf.predict([hog]))
+    #     patch = transform.resize(matcher[loc], MATCHING_SIZE, mode='nearest')
+    #     hog = feature_extractor(patch, sel, True)
+    #     print "patch[%i] is %s " % (i, clf.predict([hog]))
+    #     matches.append((clf.predict([hog]), loc))
 
-    # exit()
 
     # Plot the first match (should be a treble clef)
     # loc = slices[0]
-    # fig, ax = plt.subplots(ncols=4, figsize=((8,8)))
-    # ax[0].imshow(labels[loc], cmap=plt.cm.spectral)
-    # ax[1].imshow(img[loc], cmap=plt.cm.gray)
-    # ax[2].imshow(original[loc], cmap=plt.cm.gray)
-    # ax[3].imshow((1-original[loc])*labels[loc], cmap=plt.cm.gray)
-    # fig.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
-    # plt.show()
+    original = (1-original)
+    original = original > 0.5
+    original = binary_erosion(original, np.ones((3, 1)))
+    fig, ax = plt.subplots(nrows=4, figsize=((8,8)))
+    ax[0].imshow(labels, cmap=plt.cm.spectral)
+    ax[1].imshow(img, cmap=plt.cm.gray)
+    ax[2].imshow(original, cmap=plt.cm.gray)
+    ax[3].imshow((original)*img, cmap=plt.cm.gray)
+    fig.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
+    plt.show()
 
     exit()
 
