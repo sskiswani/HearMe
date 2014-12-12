@@ -31,9 +31,14 @@ class Staff(object):
 
         print "min: %i max: %i" % (self.bounds[0], self.bounds[1])
 
-    def get_idx(self, y_coord):
-        return None
+    def __getitem__(self, item):
+        return self.lines[item]
 
+    def __len__(self):
+        return len(self.lines)
+
+    def __itr__(self):
+        return iter(self.lines)
 
 
 def histogram(img, thresh=0.9):
@@ -79,7 +84,8 @@ def generate_midi(src):
     img = img > filter.threshold_otsu(img)
 
     lines = [y for y in xrange(1, img.shape[0]) if not img[y-1, 0] and img[y, 0]]
-    # print len(lines), repr(lines)
+    staff = Staff(lines)
+    staff_img = 1-img
 
     # fig, ax = plt.subplots(figsize=(8, 8))
     # plt.imshow(img, cmap=plt.cm.gray)
@@ -87,8 +93,7 @@ def generate_midi(src):
     # fig.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
     # plt.show()
 
-    # now extract notes
-    staff = 1-img
+    # now separate notes from staff
     img = 1 - original.copy()
     img = img > filter.threshold_otsu(img)
 
@@ -99,24 +104,19 @@ def generate_midi(src):
 
     img = grey_dilation(1 - nostaff, structure=np.ones((2, 3)), mode='nearest')
     img = normalize(img)
-    io.imsave(path.abspath('./training/processed_notes.png'), img * 255)
 
+    # now find the notes in the staff
+    labels, num_labels = ndimage.label(img, np.ones((3, 3)))
+    slices = ndimage.find_objects(labels)
+    loc = slices[0]
 
-
-
-
-    # blobs = feature.blob_log(img, 3)
-    # blobs[:, 2] = blobs[:, 2] * np.sqrt(2)
-
-    # # img = binary_closing(img, structure=np.ones((3, 3)))
-    # fig, ax = plt.subplots(figsize=((8,8)))
-    # ax.imshow(img, cmap=plt.cm.gray)
-    # for blob in blobs:
-    #     y, x, r = blob
-    #     c = plt.Circle((x, y), r, color='yellow', linewidth=2, fill=False)
-    #     ax.add_patch(c)
-    # fig.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
-    # plt.show()
+    fig, ax = plt.subplots(ncols=4, figsize=((8,8)))
+    ax[0].imshow(labels[loc], cmap=plt.cm.spectral)
+    ax[1].imshow(img[loc], cmap=plt.cm.gray)
+    ax[2].imshow(original[loc], cmap=plt.cm.gray)
+    ax[3].imshow((1-original[loc])*labels[loc], cmap=plt.cm.gray)
+    fig.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
+    plt.show()
 
     exit()
 
