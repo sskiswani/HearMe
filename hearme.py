@@ -75,7 +75,7 @@ def normalize(img):
 
 def load_classifier(fn='./svm.pkl', save_if_not_exists=True):
     fn = path.abspath(fn)
-    # if path.exists(fn): return joblib.load(fn)
+    if path.exists(fn): return joblib.load(fn)
 
     # TODO: Hardcode the test images
     training_dir = path.abspath('./training')
@@ -142,12 +142,10 @@ def process_image(src, output='midi'):
     lines = [y for y in xrange(1, img.shape[0]-1) if not img[y-1, 0] and img[y, 0]]
     staff = Staff(lines)
     staff_img = 1 - img
-    print len(lines)
-
 
     # fig, ax = plt.subplots(figsize=(8, 8))
     # plt.imshow(original, cmap=plt.cm.gray)
-    # for l in lines: plt.plot([0, img.shape[1]], [l, l])
+    # for l in lines: plt.plot([0, img.shape[1]], [l, l], 'r')
     # fig.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
     # plt.show()
 
@@ -165,22 +163,22 @@ def process_image(src, output='midi'):
     img = normalize(img)
 
     # fig, ax = plt.subplots(figsize=(8, 8))
-    # plt.imshow(img, cmap=plt.cm.gray)
+    # plt.imshow(nostaff, cmap=plt.cm.gray)
     # fig.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
     # plt.show()
 
     # now find the notes in the staff
     labels, num_labels = ndimage.label(img, np.ones((3, 3)))
     slices = ndimage.find_objects(labels)
-    # clf, sel = load_classifier()
-    #
-    # matcher = original
-    # matches = []
-    # for i, loc in enumerate(slices):
-    #     patch = transform.resize(matcher[loc], MATCHING_SIZE, mode='nearest')
-    #     hog = feature_extractor(patch, sel, True)
-    #     print "patch[%i] is %s " % (i, clf.predict([hog]))
-    #     matches.append((clf.predict([hog]), loc))
+    clf, sel = load_classifier()
+
+    matcher = original
+    matches = []
+    for i, loc in enumerate(slices):
+        patch = transform.resize(matcher[loc], MATCHING_SIZE, mode='nearest')
+        hog = feature_extractor(patch, sel, False)
+        print "patch[%i] is %s " % (i, clf.predict([hog]))
+        matches.append((clf.predict([hog]), loc))
 
 
     # Plot the first match (should be a treble clef)
@@ -188,13 +186,13 @@ def process_image(src, output='midi'):
     original = (1-original)
     original = original > 0.5
     original = binary_erosion(original, np.ones((3, 1)))
-    fig, ax = plt.subplots(nrows=4, figsize=((8,8)))
-    ax[0].imshow(labels, cmap=plt.cm.spectral)
-    ax[1].imshow(img, cmap=plt.cm.gray)
-    ax[2].imshow(original, cmap=plt.cm.gray)
-    ax[3].imshow((original)*img, cmap=plt.cm.gray)
-    fig.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
-    plt.show()
+    # fig, ax = plt.subplots(nrows=4, figsize=((8,8)))
+    # ax[0].imshow(labels, cmap=plt.cm.spectral)
+    # ax[1].imshow(img, cmap=plt.cm.gray)
+    # ax[2].imshow(original, cmap=plt.cm.gray)
+    # ax[3].imshow((original)*img, cmap=plt.cm.gray)
+    # fig.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
+    # plt.show()
 
     exit()
 

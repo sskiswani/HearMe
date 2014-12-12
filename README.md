@@ -13,12 +13,12 @@ Prerequisites
 - [music21](http://web.mit.edu/music21/) for MIDI creation
 - [numpy](http://www.numpy.org/) misc.
 - scipy
-- matplotlib 
+- matplotlib
 
 Beware!
 ---------------
 
-- HearMe currently requires a set of training images that aren't on this repo (trying to move away/improve from this method anyways)
+- HearMe currently requires a set of training images that aren't on this repo (trying to move away/improve from this method anyways). *HOWEVER* The pickled data for the SVM is included using a more efficient pickle module from sklearn.
 - Only *very nice* images work at this time. (TODO) ergo...
  - Images _should not_ have any text in them. Text currently ruins the whole entire process.
  - Noisy images cause problems (anti-aliasing, for example). In this case, *very nice* means perfectly black-and-white images.
