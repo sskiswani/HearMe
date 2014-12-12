@@ -12,19 +12,6 @@ import music21 as m21
 
 MATCHING_SIZE = np.array([62, 29])
 
-CLASSES = {
-    'BASS_CLEF': 0,
-    'C': 1,
-    'FLAT': 2,
-    'HALF_NOTE': 3,
-    'NATURAL': 4,
-    'QUARTER_NOTE': 5,
-    'QUARTER_REST': 6,
-    'SHARP': 7,
-    'TREBLE_CLEF': 8,
-    'WHOLE': 9
-}
-
 MASKS = {
     'sobel': np.array([-1., 0., 1.]) * 0.5,
     'gauss': np.array([1., 4., 6., 4., 1.]) / 16.
@@ -116,12 +103,23 @@ def load_classifier(fn='./svm.pkl', save_if_not_exists=True):
     return (clf, sel)
 
 
-def generate_midi(src):
+def process_image(src, output='midi'):
     """
-    Generate a midi from sheet music.
+    Process an image of sheet music and return it as a
 
-    :param src: Either a path to the image location, or a numpy array representing the image.
-    :return:    The midi file corresponding to the input.
+    :type src: str | np.array
+    :type output: str
+    :rtype: str | object
+
+    :param src:
+        Either a path to the image location, or a numpy array representing the image.
+    :param output:
+        Specify the desired output from the following options:
+            - 'midi' == playable MIDI.
+            - 'str' == a basic string.
+            - 'xml' == MusicXML format.
+    :return:
+        The representation of the image in the format specified in output.
     """
     if isinstance(src, str):
         img = img_as_float(io.imread(src, True))
@@ -221,6 +219,6 @@ if __name__ == '__main__':
     else:
         dest = path.abspath(args.dest)
 
-    generate_midi(src)
+    dest = process_image(src)
 
     exit(0)
