@@ -2,13 +2,12 @@ import argparse
 from os import path, listdir
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from skimage import (filter, io, feature, img_as_float, measure, restoration, exposure, morphology, transform)
+from skimage import (filter, io, img_as_float, restoration, transform)
 from scipy import ndimage
-from scipy.ndimage.filters import (convolve1d, convolve)
-from scipy.ndimage.morphology import binary_closing, grey_dilation
-from sklearn import svm, neighbors, feature_selection, feature_extraction
+from scipy.ndimage.morphology import grey_dilation
+from sklearn import svm, feature_selection
 from sklearn.externals import joblib
+
 
 MATCHING_SIZE = np.array([62, 29])
 
@@ -31,17 +30,13 @@ MASKS = {
 }
 
 
-def dilate(img):
-    return (1-normalize(img))*255
-accum = 0
 def feature_extractor(i, sel=None, visualize=False, save=False, shape=None):
     if shape is None: shape = np.array([30, 30])
     img = transform.resize(i, shape, mode='nearest')
     img = grey_dilation(img, structure=np.ones((3, 1)), mode='nearest')
-    img = normalize(img > filter.threshold_otsu(img))*255
 
     # if save and False:
-    #     global accum
+    # global accum
     #     io.imsave(path.abspath('../res/' + str(accum) + '.png'), img)
     #     accum+=1
 
@@ -57,19 +52,10 @@ def feature_extractor(i, sel=None, visualize=False, save=False, shape=None):
     return sel.transform(result).flatten() if sel is not None else result
 
 
-class Rectangle(object):
-    def __init__(self, corners):
-        self.corners = np.array([np.min(corners, 0), np.max(corners, 0)])
-        print 'Given coords: %s' % str(corners).replace('\n', '')
-        print 'yielded rect: %s' % (self)
-
-    def __repr__(self):
-        return "< Rect { %s } >" % (str(self.corners).replace('\n', ''))
-
 class Staff(object):
     def __init__(self, lines):
         temp = sorted(lines)
-        self.lines = [lines[5*i:5*(i+1)] for i in xrange(len(lines) / 5)]
+        self.lines = [lines[5 * i:5 * (i + 1)] for i in xrange(len(lines) / 5)]
         self.bounds = (temp[0], temp[-1])
 
     def __getitem__(self, item):
@@ -88,7 +74,7 @@ def histogram(img, thresh=0.9):
     for y in xrange(0, img.shape[0]):
         chain = 0
         for x in xrange(1, img.shape[1]):
-            chain = 0 if img[y, x] != img[y, x-1] or img[y, x] < 0.5 else chain + 1
+            chain = 0 if img[y, x] != img[y, x - 1] or img[y, x] < 0.5 else chain + 1
             hist[y] += chain
     return hist
 
@@ -119,14 +105,15 @@ def load_classifier(fn='./svm.pkl', save_if_not_exists=True):
     sel.fit(X, Y)
     X = [sel.transform(x).flatten() for x in X]
 
-    # clf = svm.LinearSVC()
-    # clf.fit(X, Y)
-
-    clf = neighbors.KNeighborsClassifier(n_neighbors=1, weights='uniform')
+    clf = svm.LinearSVC()
     clf.fit(X, Y)
 
-    # if save_if_not_exists: joblib.dump(clf, fn)
+    # clf = neighbors.KNeighborsClassifier(n_neighbors=1, weights='uniform')
+    # clf.fit(X, Y)
+
+    if save_if_not_exists: joblib.dump(clf, fn)
     return (clf, sel)
+
 
 def generate_midi(src):
     """
@@ -136,7 +123,7 @@ def generate_midi(src):
     :return:    The midi file corresponding to the input.
     """
     if isinstance(src, str):
-        img = img_as_float(io.imread(src,True))
+        img = img_as_float(io.imread(src, True))
     elif isinstance(src, np.ndarray):
         img = src
     else:
@@ -149,13 +136,14 @@ def generate_midi(src):
     img = 1 - normalize(img)
 
     for y in xrange(img.shape[0]):
-        img[y, :] = [np.average(img[y, :])]*img.shape[1]
+        img[y, :] = [np.average(img[y, :])] * img.shape[1]
 
     img = img > filter.threshold_otsu(img)
 
-    lines = [y for y in xrange(1, img.shape[0]) if not img[y-1, 0] and img[y, 0]]
+    lines = [y for y in xrange(1, img.shape[0]) if not img[y - 1, 0] and img[y, 0]]
     staff = Staff(lines)
-    staff_img = 1-img
+    staff_img = 1 - img
+
 
     # fig, ax = plt.subplots(figsize=(8, 8))
     # plt.imshow(img, cmap=plt.cm.gray)
@@ -163,16 +151,18 @@ def generate_midi(src):
     # fig.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
     # plt.show()
 
+
     # now separate notes from staff
     img = 1 - original.copy()
     img = img > filter.threshold_otsu(img)
 
     for y in lines:
         for x in xrange(img.shape[1]):
-            img[y, x] = img[y, x] & img[y+1, x] & img[y-1, x]
+            img[y, x] = img[y, x] & img[y + 1, x] & img[y - 1, x]
     nostaff = 1 - normalize(img)
     img = grey_dilation(1 - nostaff, structure=np.ones((2, 3)), mode='nearest')
     img = normalize(img)
+
 
     # now find the notes in the staff
     labels, num_labels = ndimage.label(img, np.ones((3, 3)))
@@ -182,16 +172,18 @@ def generate_midi(src):
 
     # test classifier on first result
     matcher = original
+    matches = []
     for i, loc in enumerate(slices):
         patch = transform.resize(matcher[loc], MATCHING_SIZE, mode='nearest')
         hog = feature_extractor(patch, sel, True)
-        # print "patch[%i] is %s with probabilities %s" % (i, clf.predict([hog]), clf.predict_proba([hog]))
         print "patch[%i] is %s " % (i, clf.predict([hog]))
+        matches.append((clf.predict([hog]), loc))
+
 
     # imgs_to_use = [img, original, nostaff, normalize((1-original)*labels)]
     # names = ['img', 'original', 'nostaff', 'multiply']
     # for i, loc in enumerate(slices):
-    #     for (name, img) in zip(names, imgs_to_use):
+    # for (name, img) in zip(names, imgs_to_use):
     #         patch = transform.resize(img[loc], MATCHING_SIZE, mode='nearest')
     #         hog = feature_extractor(patch, True)
     #         print "img[%s][%i] is %s" % (name, i, clf.predict([hog]))
@@ -212,10 +204,12 @@ def generate_midi(src):
 
     return None
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='HearMe: Sheet Music to MIDI converter.')
     parser.add_argument('src', type=str, nargs='?', help='Path to source image (sheet music) to be parsed.')
-    parser.add_argument('dest', type=str, nargs='?', help='Name to save midi as, if not supplied will save output in same directory as source.')
+    parser.add_argument('dest', type=str, nargs='?',
+                        help='Name to save midi as, if not supplied will save output in same directory as source.')
     # parser.set_defaults(dest=None, src='../BoleroofFire.jpg')
     parser.set_defaults(dest=None, src='../Frere_Jacques.png')
     # parser.set_defaults(dest=None, src='../YB4001Canon_Frere_Jacques.png')
@@ -230,6 +224,5 @@ if __name__ == '__main__':
         dest = path.abspath(args.dest)
 
     generate_midi(src)
-
 
     exit(0)
